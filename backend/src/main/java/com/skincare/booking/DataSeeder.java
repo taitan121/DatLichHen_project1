@@ -1,24 +1,31 @@
 package com.skincare.booking;
 
 import com.skincare.booking.entity.Admin;
+import com.skincare.booking.entity.Customer;
 import com.skincare.booking.entity.ServiceItem;
 import com.skincare.booking.entity.TimeSlot;
 import com.skincare.booking.repository.AdminRepository;
+import com.skincare.booking.repository.CustomerRepository;
 import com.skincare.booking.repository.ServiceItemRepository;
 import com.skincare.booking.repository.TimeSlotRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
     private final AdminRepository adminRepository;
+    private final CustomerRepository customerRepository;
     private final ServiceItemRepository serviceRepository;
     private final TimeSlotRepository timeSlotRepository;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public DataSeeder(AdminRepository adminRepository, ServiceItemRepository serviceRepository,
+    public DataSeeder(AdminRepository adminRepository, CustomerRepository customerRepository, ServiceItemRepository serviceRepository,
                       TimeSlotRepository timeSlotRepository) {
         this.adminRepository = adminRepository;
+        this.customerRepository = customerRepository;
         this.serviceRepository = serviceRepository;
         this.timeSlotRepository = timeSlotRepository;
     }
@@ -26,6 +33,7 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedAdmin();
+        hashExistingPlainTextPasswords();
         seedServices();
         seedTimeSlots();
     }
@@ -34,9 +42,30 @@ public class DataSeeder implements CommandLineRunner {
         if (!adminRepository.existsByUsername("admin")) {
             Admin admin = new Admin();
             admin.setUsername("admin");
-            admin.setPassword("admin123");
+            admin.setPassword(passwordEncoder.encode("admin123"));
             adminRepository.save(admin);
         }
+    }
+
+    private void hashExistingPlainTextPasswords() {
+        for (Admin admin : adminRepository.findAll()) {
+            if (!isBcryptHash(admin.getPassword())) {
+                admin.setPassword(passwordEncoder.encode(admin.getPassword()));
+                adminRepository.save(admin);
+            }
+        }
+
+        for (Customer customer : customerRepository.findAll()) {
+            if (!isBcryptHash(customer.getPassword())) {
+                customer.setPassword(passwordEncoder.encode(customer.getPassword()));
+                customerRepository.save(customer);
+            }
+        }
+    }
+
+    private boolean isBcryptHash(String password) {
+        return password != null
+                && (password.startsWith("$2a$") || password.startsWith("$2b$") || password.startsWith("$2y$"));
     }
 
     private void seedServices() {

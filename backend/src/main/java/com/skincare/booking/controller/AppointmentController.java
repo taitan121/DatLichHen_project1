@@ -12,6 +12,8 @@ import com.skincare.booking.repository.CustomerRepository;
 import com.skincare.booking.repository.ServiceItemRepository;
 import com.skincare.booking.repository.TimeSlotRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -32,6 +34,7 @@ public class AppointmentController {
     private final CustomerRepository customerRepository;
     private final ServiceItemRepository serviceRepository;
     private final TimeSlotRepository timeSlotRepository;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AppointmentController(AppointmentRepository appointmentRepository, AdminRepository adminRepository,
                                  CustomerRepository customerRepository, ServiceItemRepository serviceRepository,
@@ -126,15 +129,21 @@ public class AppointmentController {
     }
 
     private void requireAdmin(String username, String password) {
-        boolean isAdmin = adminRepository.findByUsernameAndPassword(username, password).isPresent();
+        boolean isAdmin = adminRepository.findByUsername(username)
+                .filter(admin -> passwordMatches(password, admin.getPassword()))
+                .isPresent();
         if (!isAdmin) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ admin mới được xem hoặc xử lý tất cả lịch hẹn");
         }
     }
 
     private void requireCustomer(Customer customer, String password) {
-        if (password == null || !password.equals(customer.getPassword())) {
+        if (password == null || !passwordMatches(password, customer.getPassword())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bạn chỉ được xem hoặc tạo lịch hẹn của tài khoản đang đăng nhập");
         }
+    }
+
+    private boolean passwordMatches(String rawPassword, String storedPassword) {
+        return passwordEncoder.matches(rawPassword, storedPassword) || rawPassword.equals(storedPassword);
     }
 }

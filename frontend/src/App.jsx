@@ -49,6 +49,15 @@ function normalizeTime(time) {
   return String(time || "").slice(0, 5);
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
 function mergeTimeSlots(slots) {
   const byTime = new Map();
 
@@ -536,9 +545,20 @@ function CustomerAuth({ mode, onLogin, onAdminLogin, setPage }) {
   const [loading, setLoading] = useState(false);
   const isRegister = mode === "register";
 
+  function updatePhone(value) {
+    const nextPhone = isRegister ? value.replace(/\D/g, "").slice(0, 10) : value;
+    setForm({ ...form, phone: nextPhone });
+  }
+
   async function submitForm(event) {
     event.preventDefault();
     setMessage("");
+
+    if (isRegister && !/^\d{10}$/.test(form.phone)) {
+      setMessage("Số điện thoại phải gồm đúng 10 chữ số.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -582,7 +602,16 @@ function CustomerAuth({ mode, onLogin, onAdminLogin, setPage }) {
       <h2>{isRegister ? "Đăng ký khách hàng" : "Đăng nhập tài khoản"}</h2>
       <form onSubmit={submitForm}>
         <label>{isRegister ? "Số điện thoại" : "Tài khoản / Số điện thoại"}</label>
-        <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+        <input
+          value={form.phone}
+          onChange={(e) => updatePhone(e.target.value)}
+          type={isRegister ? "tel" : "text"}
+          inputMode={isRegister ? "numeric" : undefined}
+          maxLength={isRegister ? 10 : undefined}
+          pattern={isRegister ? "\\d{10}" : undefined}
+          title={isRegister ? "Số điện thoại phải gồm đúng 10 chữ số" : undefined}
+          required
+        />
         <label>Mật khẩu</label>
         <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
         <button type="submit" disabled={loading}>{loading ? "Đang xử lý..." : isRegister ? "Đăng ký" : "Đăng nhập"}</button>
@@ -728,6 +757,7 @@ function AdminDashboard({ admin, adminPassword, setPage }) {
   const [message, setMessage] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(toMonthValue());
 
@@ -786,7 +816,11 @@ function AdminDashboard({ admin, adminPassword, setPage }) {
   const filteredAppointments = appointments.filter((item) => {
     const matchStatus = statusFilter === "ALL" || item.status === statusFilter;
     const matchDate = !selectedDate || item.timeSlot?.slotDate === selectedDate;
-    return matchStatus && matchDate;
+    const normalizedSearchTerm = normalizeSearchText(searchTerm);
+    const matchSearch = !normalizedSearchTerm
+      || normalizeSearchText(item.customerName).includes(normalizedSearchTerm)
+      || normalizeSearchText(item.phone).includes(normalizedSearchTerm);
+    return matchStatus && matchDate && matchSearch;
   });
   const totalPending = appointments.filter((item) => item.status === "PENDING").length;
   const totalConfirmed = appointments.filter((item) => item.status === "CONFIRMED").length;
@@ -828,6 +862,15 @@ function AdminDashboard({ admin, adminPassword, setPage }) {
           <div className="section-heading">
             <h3>Danh sách lịch hẹn</h3>
             <div className="admin-filters">
+              <label className="admin-search">
+                <span>Tìm khách</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Nhập tên hoặc SĐT"
+                />
+              </label>
               {["ALL", "PENDING", "CONFIRMED", "CANCELLED"].map((status) => (
                 <button
                   key={status}

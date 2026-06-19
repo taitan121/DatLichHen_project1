@@ -571,6 +571,26 @@ form button {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 260px;
+  color: #6b5f59;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-search input {
+  width: 190px;
+  border: 1px solid #d7c5bb;
+  background: #fffdf9;
+  color: #2b2522;
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 .admin-filters button,
@@ -844,5 +864,15 @@ footer {
 
   .admin-filters {
     justify-content: flex-start;
+  }
+
+  .admin-search {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-search input {
+    width: 100%;
   }
 }
